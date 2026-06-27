@@ -1,16 +1,19 @@
 import React, { useState } from "react";
 
-export default function Auth() {
-  const [isSignUp, setIsSignUp] = useState(false);
+// 1. Destructured onloginSuccess prop so the component can actually use it
+export default function Auth({ onloginSuccess }) {
+  // Set default to true so it opens up directly into the Create Account view
+  const [isSignUp, setIsSignUp] = useState(true);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
+    // Validation rules checking inputs cleanly
     if (!email.trim() || !password.trim() || (isSignUp && !fullName.trim())) {
       setError("Please fill in all fields");
       return;
@@ -19,13 +22,39 @@ export default function Auth() {
       setError("Password must be at least 6 characters long");
       return;
     }
-    const userData = {
-      fullName: isSignUp ? fullName : email.split("@")[0],
-      email: email,
-      workspace: "Workspace",
-    };
-    onloginSuccess(userData);
+
+    try {
+      // 2. Direct connection network payload pointing to your FastAPI backend
+      const response = await fetch("http://localhost:8000/auth/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+          full_name: isSignUp ? fullName.trim() : email.split("@")[0], // Maps to Python's snake_case schema requirement
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || "Authentication synchronization failed.",
+        );
+      }
+
+      const backendUser = await response.json();
+
+      // Pass the fully authenticated database entity up to the core application state
+      if (onloginSuccess) {
+        onloginSuccess(backendUser);
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong connecting to the server.");
+    }
   };
+
   return (
     <div style={styles.authContainer}>
       <div style={styles.authCard}>
@@ -38,8 +67,24 @@ export default function Auth() {
             ? "Sign up to manage your daily tasks"
             : "Sign in to access your task dashboard"}
         </p>
+
         {error && <div style={styles.errorMessage}>{error}</div>}
+
         <form onSubmit={handleSubmit}>
+          {/* 3. Conditional Input field for Full Name block built out safely */}
+          {isSignUp && (
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Full Name</label>
+              <input
+                type="text"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                style={styles.inputField}
+              />
+            </div>
+          )}
+
           <div style={styles.formGroup}>
             <label style={styles.label}>Email Address</label>
             <input
@@ -70,6 +115,7 @@ export default function Auth() {
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError("");
+              setFullName("");
             }}
             style={styles.toggleLink}
           >
@@ -80,6 +126,7 @@ export default function Auth() {
     </div>
   );
 }
+
 const styles = {
   authContainer: {
     display: "flex",

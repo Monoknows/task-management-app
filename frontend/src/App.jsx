@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-// Import Custom Modular Components
 import Sidebar from "./Components/Sidebar/Sidebar";
 import TaskHeader from "./Components/TaskHeader/TaskHeader";
 import TaskCard from "./Components/TaskCard/TaskCard";
@@ -9,25 +8,60 @@ import TaskModal from "./Components/TaskModal/TaskModal";
 import Auth from "./Components/Auth/Auth";
 
 export default function App() {
-  const [user, setUser] = useState(null); // High-level User Authentication Context
+  const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  const API_URL = "http://127.0.0.1:8000/tasks";
+  const API_URL = "http://127.0.0.1:8000";
 
-  // Fetch Logic (Combined Search & Filter)
+  // Handle Dynamic Backend Sync when Auth form is submitted
+  const handleAuthSuccess = async (credentials) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: credentials.fullName,
+          email: credentials.email,
+          password: "secure_password_mock",
+        }),
+      });
+      if (response.ok) {
+        const dbUser = await response.json();
+        setUser({
+          id: dbUser.id,
+          fullName: dbUser.full_name,
+          email: dbUser.email,
+          workspace: "Pro Workspace",
+        });
+      }
+    } catch (err) {
+      console.error("Auth sync engine failed:", err);
+    }
+  };
+
+  // Fetch Logic (Isolated via user.id Header parameter)
   useEffect(() => {
-    if (!user) return; // Only fetch if user is authorized
+    if (!user) return;
 
     const fetchTasks = async () => {
       try {
         const queryParams = new URLSearchParams({ status });
         if (search) queryParams.append("search", search);
 
-        const response = await fetch(`${API_URL}?${queryParams.toString()}`);
+        const response = await fetch(
+          `${API_URL}/tasks?${queryParams.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "X-User-Id": user.id, // SECURE HANDSHAKE IDENTIFIER
+            },
+          },
+        );
         if (!response.ok) throw new Error("Failed to fetch tasks");
         const data = await response.json();
         setTasks(data);
@@ -41,9 +75,12 @@ export default function App() {
   const handleModalSubmit = async (formData) => {
     try {
       if (selectedTask) {
-        const response = await fetch(`${API_URL}/${selectedTask.id}`, {
+        const response = await fetch(`${API_URL}/tasks/${selectedTask.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": user.id,
+          },
           body: JSON.stringify(formData),
         });
         if (response.ok) {
@@ -51,9 +88,12 @@ export default function App() {
           setTasks(tasks.map((t) => (t.id === selectedTask.id ? updated : t)));
         }
       } else {
-        const response = await fetch(API_URL, {
+        const response = await fetch(`${API_URL}/tasks`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": user.id,
+          },
           body: JSON.stringify(formData),
         });
         if (response.ok) {
@@ -69,9 +109,12 @@ export default function App() {
 
   const handleToggleComplete = async (task) => {
     try {
-      const response = await fetch(`${API_URL}/${task.id}`, {
+      const response = await fetch(`${API_URL}/tasks/${task.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": user.id,
+        },
         body: JSON.stringify({ is_completed: !task.is_completed }),
       });
       if (response.ok) {
@@ -86,7 +129,10 @@ export default function App() {
   const handleDeleteTask = async (id) => {
     if (!window.confirm("Are you sure you want to delete this task?")) return;
     try {
-      const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const response = await fetch(`${API_URL}/tasks/${id}`, {
+        method: "DELETE",
+        headers: { "X-User-Id": user.id },
+      });
       if (response.ok) {
         setTasks(tasks.filter((task) => task.id !== id));
       }
@@ -112,9 +158,8 @@ export default function App() {
 
   return (
     <Router>
-      {/* Route Interceptor: If no active session, show Sign In/Up view */}
       {!user ? (
-        <Auth onLoginSuccess={(loggedInUser) => setUser(loggedInUser)} />
+        <Auth onLoginSuccess={handleAuthSuccess} />
       ) : (
         <Routes>
           <Route

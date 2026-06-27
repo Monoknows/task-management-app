@@ -1,65 +1,71 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import models, schemas
+
+import models
+import schemas
 from database import engine, get_db
 
 models.base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Task Management API", description="API for managing tasks")
+app = FastAPI(title="Secure Multi-User Task API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# USER IDENTIFICATION / AUTH ROUTES 
 
-# User identification and auth routes
 @app.post("/auth/sync", response_model=schemas.UserResponse)
 def auth_sync(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user_data.email).first()
-    if not user_data:
-        user =models.User(     
+    """Finds an existing user or provisions a row in SQLite."""
+    user = db.query(models.User).filter(models.User.email == user_data.email).first()
+    if not user:
+        user = models.User(
             full_name=user_data.full_name,
             email=user_data.email,
-            hashed_password=user_data.password  
+            hashed_password=user_data.password
         )
-
-        db.add(new_user)
+        db.add(user)
         db.commit()
-        db.refresh(new_user)
-    return new_user
+        db.refresh(user)
+    return user
 
-@app.get("/tasks", response_model=List[TaskResponse])
+
+
+
+@app.get("/tasks", response_model=List[schemas.TaskResponse])
 def get_tasks(
-    status: str = "All",
-    search: Optional[str] = None,
-    x_user_id: int = Query(..., alias="X-User-ID"),
+    status: str = "All", 
+    search: Optional[str] = None, 
+    x_user_id: int = Header(..., alias="X-User-Id"), 
     db: Session = Depends(get_db)
 ):
+    
     query = db.query(models.Task).filter(models.Task.owner_id == x_user_id)
-
+    
+    if status == "Active":
+        query = query.filter(models.Task.is_completed == False)
+    elif status == "Inactive":
+        query = query.filter(models.Task.is_completed == True)
+        
     if search:
         query = query.filter(models.Task.title.ilike(f"%{search}%"))
-    
-    if status.lower() == "active":
-        query = query.filter(models.Task.is_completed == False)
-    elif status.lower() == "inactive":
-        query = query.filter(models.Task.is_completed == True)
-
+        
     return query.all()
 
 @app.post("/tasks", response_model=schemas.TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(
-    task: schemas.TaskCreate,
-    x_user_id: int = Header(..., alias="X-User-ID"),
+    task: schemas.TaskCreate, 
+    x_user_id: int = Header(..., alias="X-User-Id"), 
     db: Session = Depends(get_db)
 ):
-    new_task =models.Task(***task.dict(), owner_id=x_user_id)
+    new_task = models.Task(**task.dict(), owner_id=x_user_id)
     db.add(new_task)
     db.commit()
     db.refresh(new_task)

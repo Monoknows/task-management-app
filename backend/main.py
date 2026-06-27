@@ -53,27 +53,46 @@ def get_tasks(
 
     return query.all()
 
-@app.put("/tasks/{task_id}", response_model=TaskResponse)
-def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_db)):
-    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not db_task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-   
-    update_data = task.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_task, key, value)
-    
+@app.post("/tasks", response_model=schemas.TaskResponse, status_code=status.HTTP_201_CREATED)
+def create_task(
+    task: schemas.TaskCreate,
+    x_user_id: int = Header(..., alias="X-User-ID"),
+    db: Session = Depends(get_db)
+):
+    new_task =models.Task(***task.dict(), owner_id=x_user_id)
+    db.add(new_task)
     db.commit()
-    db.refresh(db_task)
-    return db_task
+    db.refresh(new_task)
+    return new_task
 
-@app.delete("/tasks/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db)):
-    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not db_task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    db.delete(db_task)
+@app.put("/tasks/{task_id}", response_model=schemas.TaskResponse)
+def update_task(
+    task_id: int, 
+    task_data: schemas.TaskUpdate, 
+    x_user_id: int = Header(..., alias="X-User-Id"), 
+    db: Session = Depends(get_db)
+):
+    task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.owner_id == x_user_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task missing or access permission denied")
+        
+    for key, value in task_data.dict(exclude_unset=True).items():
+        setattr(task, key, value)
+        
     db.commit()
-    return {"detail": "Task deleted successfully"}
+    db.refresh(task)
+    return task
+
+@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(
+    task_id: int, 
+    x_user_id: int = Header(..., alias="X-User-Id"), 
+    db: Session = Depends(get_db)
+):
+    task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.owner_id == x_user_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task missing or access permission denied")
+        
+    db.delete(task)
+    db.commit()
+    return None

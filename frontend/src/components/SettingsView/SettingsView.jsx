@@ -1,9 +1,5 @@
 import { useState, useRef } from "react";
 
-// Props from App.jsx:
-//   user                — { id, fullName, email, workspace, accentColor, avatarUrl }
-//   onUpdatePreferences — async ({ accent_color?, avatar_url?, full_name? }) => { success } | { error }
-
 const API_URL = "http://127.0.0.1:8000";
 
 const ACCENT_OPTIONS = [
@@ -15,10 +11,9 @@ const ACCENT_OPTIONS = [
   { label: "Violet", value: "#7C3AED" },
 ];
 
-const MAX_AVATAR_BYTES = 1_500_000; // ~1.5MB before base64 inflation
+const MAX_AVATAR_BYTES = 1_500_000;
 
 export default function SettingsView({ user, onUpdatePreferences }) {
-  // ── Draft state for appearance — only committed to the account on Save ──────
   const [draftAccent, setDraftAccent] = useState(
     user?.accentColor || "#4F46E5",
   );
@@ -32,7 +27,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
     draftAccent !== (user?.accentColor || "#4F46E5") ||
     draftAvatar !== (user?.avatarUrl || null);
 
-  // ── Password form ────────────────────────────────────────────────────────────
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -51,8 +45,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
       .toUpperCase()
       .slice(0, 2);
   };
-
-  // ── Avatar file -> base64 ────────────────────────────────────────────────────
   const handleAvatarPick = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -80,7 +72,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // ── Save appearance (accent + avatar) ────────────────────────────────────────
   const handleSavePreferences = async () => {
     setIsSavingPrefs(true);
     setPrefsSuccess("");
@@ -101,7 +92,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
     setPrefsSuccess("");
   };
 
-  // ── Password change ──────────────────────────────────────────────────────────
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setPwError("");
@@ -161,7 +151,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
       </header>
 
       <div style={styles.grid}>
-        {/* ── Account info ── */}
         <section style={styles.card}>
           <h2 style={styles.cardHeading}>Account</h2>
           <div style={styles.profileRow}>
@@ -186,7 +175,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
           </div>
         </section>
 
-        {/* ── Appearance ── */}
         <section style={styles.card}>
           <h2 style={styles.cardHeading}>Appearance</h2>
 
@@ -254,7 +242,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
             })}
           </div>
 
-          {/* Save / Discard — only commits to the account on click */}
           <div style={styles.saveRow}>
             {prefsSuccess && !hasUnsavedChanges && (
               <span style={styles.successInline}>{prefsSuccess}</span>
@@ -288,7 +275,6 @@ export default function SettingsView({ user, onUpdatePreferences }) {
           </div>
         </section>
 
-        {/* ── Change password ── */}
         <section style={{ ...styles.card, gridColumn: "1 / -1" }}>
           <h2 style={styles.cardHeading}>Change password</h2>
 

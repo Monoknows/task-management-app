@@ -28,10 +28,10 @@ export default function DashboardOverview({
 
   const dbLabel =
     {
-      connected: "● Connected",
-      connecting: "⏳ Connecting…",
-      error: "⚠️ Connection failed",
-    }[dbStatus] || "⏳ Connecting…";
+      connected: " Connected",
+      connecting: " Connecting…",
+      error: " Connection failed",
+    }[dbStatus] || " Connecting…";
 
   const dbColors = {
     connected: { bg: "#ECFDF5", text: "#065F46" },
@@ -60,7 +60,7 @@ export default function DashboardOverview({
       <header style={styles.headerRow}>
         <div>
           <h1 style={styles.welcomeText}>
-            {greeting()}, {user?.fullName?.split(" ")[0] || "there"} 👋
+            {greeting()}, {user?.fullName?.split(" ")[0] || "there!"}
           </h1>
           <p style={styles.subtext}>
             {pendingTasks > 0
@@ -89,14 +89,12 @@ export default function DashboardOverview({
             icon: "✅",
             label: "Completed",
             value: completedTasks,
-            trend: "+8%",
             trendUp: true,
           },
           {
             icon: "⏳",
             label: "Pending",
             value: pendingTasks,
-            trend: "-3%",
             trendUp: false,
           },
           {
@@ -126,9 +124,7 @@ export default function DashboardOverview({
         ))}
       </section>
 
-      {/* ── Main content grid ── */}
       <section style={styles.splitGrid}>
-        {/* Left: Upcoming Deadlines */}
         <div style={styles.columnLeft}>
           <div style={styles.sectionTitleRow}>
             <h2 style={styles.sectionTitle}>Upcoming Tasks</h2>
@@ -142,7 +138,7 @@ export default function DashboardOverview({
               <div style={styles.emptyState}>
                 {totalTasks === 0
                   ? "Add your first task to get started."
-                  : "🎉 All tasks are complete!"}
+                  : " All tasks are complete!"}
               </div>
             ) : (
               upcomingTasks.map((task, idx) => (
@@ -319,7 +315,7 @@ const styles = {
     fontSize: "12px",
     fontWeight: "700",
   },
-  // Stats
+
   statsRow: { display: "flex", gap: "16px", flexWrap: "wrap" },
   statCard: {
     flex: 1,

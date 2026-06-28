@@ -65,7 +65,6 @@ export default function Auth({ onLoginSuccess, apiError }) {
     setLocalError("");
     setFullName("");
     setPassword("");
-    // keep email so user can just type password
   };
 
   const switchMode = () => {
@@ -80,11 +79,10 @@ export default function Auth({ onLoginSuccess, apiError }) {
 
   return (
     <div style={styles.page}>
-      {/* ── Success Popup ── */}
       {showSuccessPopup && (
         <div style={styles.popupOverlay}>
           <div style={styles.popup}>
-            <div style={styles.popupIcon}>🎉</div>
+            <div style={styles.popupIcon}>Congratulations!</div>
             <h2 style={styles.popupTitle}>Account created!</h2>
             <p style={styles.popupBody}>
               Welcome, <strong>{successName}</strong>! Your account has been
@@ -117,7 +115,7 @@ export default function Auth({ onLoginSuccess, apiError }) {
               <label style={styles.label}>Full name</label>
               <input
                 type="text"
-                placeholder="Jane Smith"
+                placeholder="Juan Dela Cruz"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 style={styles.input}
@@ -130,7 +128,7 @@ export default function Auth({ onLoginSuccess, apiError }) {
             <label style={styles.label}>Email address</label>
             <input
               type="email"
-              placeholder="jane@example.com"
+              placeholder="juan@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
@@ -263,7 +261,7 @@ const styles = {
     cursor: "pointer",
     textDecoration: "underline",
   },
-  // Popup
+
   popupOverlay: {
     position: "fixed",
     inset: 0,

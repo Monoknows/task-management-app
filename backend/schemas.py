@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 
 class UserCreate(BaseModel):
@@ -25,10 +25,32 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
 
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Title cannot be empty.")
+        if len(cleaned) < 3:
+            raise ValueError("Title must be at least 3 characters.")
+        return cleaned
+
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     is_completed: Optional[bool] = None
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Title cannot be empty.")
+        if len(cleaned) < 3:
+            raise ValueError("Title must be at least 3 characters.")
+        return cleaned
 
 class TaskResponse(BaseModel):
     id: int

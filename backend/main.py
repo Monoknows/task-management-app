@@ -108,9 +108,9 @@ def update_user_preferences(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    update_fields = data.dict(exclude_unset=True, exclude_none=True)
+    update_fields = data.dict(exclude_unset=True)
 
-    if "accent_color" in update_fields:
+    if "accent_color" in update_fields and update_fields["accent_color"] is not None:
         color = update_fields["accent_color"]
         if not (color.startswith("#") and len(color) in (4, 7)):
             raise HTTPException(
@@ -118,7 +118,7 @@ def update_user_preferences(
                 detail="accent_color must be a hex string like #4F46E5",
             )
 
-    if "avatar_url" in update_fields:
+    if "avatar_url" in update_fields and update_fields["avatar_url"] is not None:
         # Base64 data URLs can be large; keep a sane cap (~2MB encoded)
         if len(update_fields["avatar_url"]) > 2_750_000:
             raise HTTPException(

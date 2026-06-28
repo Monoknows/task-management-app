@@ -11,12 +11,13 @@ export default function Auth({ onLoginSuccess, apiError }) {
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successName, setSuccessName] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError("");
 
-    // Client-side validation
     if (!email.trim() || !password.trim()) {
       setLocalError("Email and password are required.");
       return;
@@ -31,13 +32,40 @@ export default function Auth({ onLoginSuccess, apiError }) {
     }
 
     setIsSubmitting(true);
-    // Pass real credentials up to App.jsx which POSTs to /auth/sync
-    await onLoginSuccess({
-      fullName: isSignUp ? fullName.trim() : email.split("@")[0],
-      email: email.trim(),
-      password: password,
-    });
-    setIsSubmitting(false);
+
+    if (isSignUp) {
+      // For sign-up: call backend, then show success popup before switching to sign-in
+      const result = await onLoginSuccess({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password: password,
+        isSignUp: true,
+      });
+      setIsSubmitting(false);
+
+      // If no error returned (success), show the popup
+      if (!result?.error) {
+        setSuccessName(fullName.trim().split(" ")[0]);
+        setShowSuccessPopup(true);
+      }
+    } else {
+      await onLoginSuccess({
+        fullName: email.split("@")[0],
+        email: email.trim(),
+        password: password,
+        isSignUp: false,
+      });
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePopupContinue = () => {
+    setShowSuccessPopup(false);
+    setIsSignUp(false);
+    setLocalError("");
+    setFullName("");
+    setPassword("");
+    // keep email so user can just type password
   };
 
   const switchMode = () => {
@@ -52,6 +80,23 @@ export default function Auth({ onLoginSuccess, apiError }) {
 
   return (
     <div style={styles.page}>
+      {/* ── Success Popup ── */}
+      {showSuccessPopup && (
+        <div style={styles.popupOverlay}>
+          <div style={styles.popup}>
+            <div style={styles.popupIcon}>🎉</div>
+            <h2 style={styles.popupTitle}>Account created!</h2>
+            <p style={styles.popupBody}>
+              Welcome, <strong>{successName}</strong>! Your account has been
+              successfully created. Sign in to start managing your tasks.
+            </p>
+            <button onClick={handlePopupContinue} style={styles.popupBtn}>
+              Continue to sign in
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={styles.card}>
         {/* Brand */}
         <div style={styles.brand}>Task Manager</div>
@@ -64,10 +109,8 @@ export default function Auth({ onLoginSuccess, apiError }) {
             : "Sign in to access your task dashboard."}
         </p>
 
-        {/* Error */}
         {displayError && <div style={styles.errorBox}>{displayError}</div>}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
           {isSignUp && (
             <div style={styles.field}>
@@ -120,7 +163,6 @@ export default function Auth({ onLoginSuccess, apiError }) {
           </button>
         </form>
 
-        {/* Toggle */}
         <p style={styles.toggle}>
           {isSignUp ? "Already have an account? " : "Don't have an account? "}
           <span onClick={switchMode} style={styles.toggleLink}>
@@ -154,7 +196,7 @@ const styles = {
   brand: {
     fontSize: "22px",
     fontWeight: "800",
-    color: "#4F46E5",
+    color: "var(--accent)",
     textAlign: "center",
     marginBottom: "24px",
     letterSpacing: "-0.5px",
@@ -198,7 +240,7 @@ const styles = {
     transition: "border-color 0.15s",
   },
   submitBtn: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: "var(--accent)",
     color: "#FFFFFF",
     border: "none",
     padding: "12px",
@@ -216,9 +258,59 @@ const styles = {
     color: "#6B7280",
   },
   toggleLink: {
-    color: "#4F46E5",
+    color: "var(--accent)",
     fontWeight: "600",
     cursor: "pointer",
     textDecoration: "underline",
+  },
+  // Popup
+  popupOverlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(17,24,39,0.5)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
+    padding: "16px",
+  },
+  popup: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: "20px",
+    padding: "40px 36px",
+    maxWidth: "380px",
+    width: "100%",
+    textAlign: "center",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+    animation: "fadeInUp 0.3s ease",
+  },
+  popupIcon: {
+    fontSize: "48px",
+    marginBottom: "16px",
+    display: "block",
+  },
+  popupTitle: {
+    fontSize: "24px",
+    fontWeight: "800",
+    color: "#111827",
+    margin: "0 0 12px 0",
+  },
+  popupBody: {
+    fontSize: "15px",
+    color: "#6B7280",
+    lineHeight: "1.6",
+    margin: "0 0 28px 0",
+  },
+  popupBtn: {
+    backgroundColor: "var(--accent)",
+    color: "#FFFFFF",
+    border: "none",
+    padding: "13px 28px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer",
+    width: "100%",
   },
 };

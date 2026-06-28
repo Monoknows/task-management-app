@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 
 import models
 import schemas
@@ -31,7 +32,7 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-# USER IDENTIFICATION / AUTH ROUTES
+# ── Auth ────────────────────────────────────────────────────────────────────
 
 @app.post("/auth/sync", response_model=schemas.UserResponse)
 def auth_sync(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -49,8 +50,6 @@ def auth_sync(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
     else:
-        # Existing account — the password MUST match, otherwise anyone could
-        # log in to anyone else's account just by knowing their email.
         if user.hashed_password != hashed:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,6 +58,83 @@ def auth_sync(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
 
     return user
 
+
+class PasswordChangeRequest(BaseModel):
+    email: str
+    current_password: str
+    new_password: str
+
+
+@app.post("/auth/change-password", status_code=status.HTTP_200_OK)
+def change_password(
+    data: PasswordChangeRequest,
+    x_user_id: int = Header(..., alias="X-User-Id"),
+    db: Session = Depends(get_db),
+):
+    """Verifies current password then updates to the new one."""
+    user = (
+        db.query(models.User)
+        .filter(models.User.id == x_user_id, models.User.email == data.email)
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.hashed_password != hash_password(data.current_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+
+    if len(data.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password must be at least 6 characters",
+        )
+
+    user.hashed_password = hash_password(data.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
+
+
+@app.put("/users/me", response_model=schemas.UserResponse)
+def update_user_preferences(
+    data: schemas.UserPreferencesUpdate,
+    x_user_id: int = Header(..., alias="X-User-Id"),
+    db: Session = Depends(get_db),
+):
+    """Updates the current user's display name, accent color, and/or avatar."""
+    user = db.query(models.User).filter(models.User.id == x_user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update_fields = data.dict(exclude_unset=True, exclude_none=True)
+
+    if "accent_color" in update_fields:
+        color = update_fields["accent_color"]
+        if not (color.startswith("#") and len(color) in (4, 7)):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="accent_color must be a hex string like #4F46E5",
+            )
+
+    if "avatar_url" in update_fields:
+        # Base64 data URLs can be large; keep a sane cap (~2MB encoded)
+        if len(update_fields["avatar_url"]) > 2_750_000:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Image is too large. Please choose a smaller picture.",
+            )
+
+    for key, value in update_fields.items():
+        setattr(user, key, value)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# ── Tasks ────────────────────────────────────────────────────────────────────
 
 @app.get("/tasks", response_model=List[schemas.TaskResponse])
 def get_tasks(
@@ -108,7 +184,16 @@ def update_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task missing or access permission denied")
 
-    for key, value in task_data.dict(exclude_unset=True).items():
+    # Prevent editing a completed task (unless only toggling is_completed back)
+    update_fields = task_data.dict(exclude_unset=True)
+    toggling_only = set(update_fields.keys()) == {"is_completed"}
+    if task.is_completed and not toggling_only:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot edit a completed task. Reopen it first.",
+        )
+
+    for key, value in update_fields.items():
         setattr(task, key, value)
 
     db.commit()

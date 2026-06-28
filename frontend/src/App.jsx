@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Sidebar from "./Components/Sidebar/Sidebar";
 import TaskHeader from "./Components/TaskHeader/TaskHeader";
 import TaskCard from "./Components/TaskCard/TaskCard";
 import TaskModal from "./Components/TaskModal/TaskModal";
+import TaskDetail from "./Components/TaskDetail/TaskDetail";
 import Auth from "./Components/Auth/Auth";
+import DashboardOverview from "./Components/DashboardOverview/DashboardOverview";
+import SettingsView from "./Components/SettingsView/SettingsView";
 
 const API_URL = "http://127.0.0.1:8000";
 
 export default function App() {
+  // ── Persisted user ──────────────────────────────────────────────────────────
   const [user, setUser] = useState(() => {
-    // Persist login across page refresh
     try {
       const saved = localStorage.getItem("tm_user");
       return saved ? JSON.parse(saved) : null;
@@ -20,6 +22,48 @@ export default function App() {
     }
   });
 
+  // ── View state: "dashboard" | "tasks" | "settings" ─────────────────────────
+  const [activeView, setActiveView] = useState("dashboard");
+
+  // ── Task detail (drill-in from dashboard) ───────────────────────────────────
+  const [detailTask, setDetailTask] = useState(null);
+
+  // ── Preferences update (accent color, avatar, name) ─────────────────────────
+  // Lives on the user record server-side so it's per-account, not per-browser.
+  const handleUpdatePreferences = async (updates) => {
+    setApiError("");
+    try {
+      const response = await fetch(`${API_URL}/users/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": String(user.id),
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Failed to save preferences");
+      }
+      const updatedUser = await response.json();
+      const normalizedUser = {
+        id: updatedUser.id,
+        fullName: updatedUser.full_name,
+        email: updatedUser.email,
+        workspace: user.workspace,
+        accentColor: updatedUser.accent_color,
+        avatarUrl: updatedUser.avatar_url,
+      };
+      localStorage.setItem("tm_user", JSON.stringify(normalizedUser));
+      setUser(normalizedUser);
+      return { success: true };
+    } catch (err) {
+      setApiError(err.message);
+      return { error: err.message };
+    }
+  };
+
+  // ── Tasks ───────────────────────────────────────────────────────────────────
   const [tasks, setTasks] = useState([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
@@ -27,9 +71,11 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [dbStatus, setDbStatus] = useState("connecting");
 
   // ── Auth ────────────────────────────────────────────────────────────────────
-  // Auth.jsx calls onLoginSuccess({ fullName, email, password })
+  // Returns { error } on failure so Auth.jsx can decide whether to show the
+  // sign-up success popup.
   const handleLoginSuccess = async (credentials) => {
     setApiError("");
     try {
@@ -45,21 +91,34 @@ export default function App() {
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.detail || "Authentication failed");
+        const message = err.detail || "Authentication failed";
+        setApiError(message);
+        return { error: message };
       }
 
-      // Backend returns: { id, full_name, email }
       const dbUser = await response.json();
       const normalizedUser = {
         id: dbUser.id,
         fullName: dbUser.full_name,
         email: dbUser.email,
         workspace: "Pro Workspace",
+        accentColor: dbUser.accent_color || "#4F46E5",
+        avatarUrl: dbUser.avatar_url || null,
       };
+
+      // For sign-up: return success WITHOUT setting the user yet —
+      // Auth.jsx will show the success popup first, then the user
+      // manually navigates to sign-in and logs in.
+      if (credentials.isSignUp) {
+        return { success: true };
+      }
+
       localStorage.setItem("tm_user", JSON.stringify(normalizedUser));
       setUser(normalizedUser);
+      return { success: true };
     } catch (err) {
       setApiError(err.message);
+      return { error: err.message };
     }
   };
 
@@ -69,6 +128,7 @@ export default function App() {
 
     const fetchTasks = async () => {
       setIsLoading(true);
+      setDbStatus("connecting");
       setApiError("");
       try {
         const queryParams = new URLSearchParams({ status });
@@ -84,8 +144,10 @@ export default function App() {
         if (!response.ok) throw new Error("Failed to fetch tasks");
         const data = await response.json();
         setTasks(data);
+        setDbStatus("connected");
       } catch (error) {
         setApiError(error.message);
+        setDbStatus("error");
       } finally {
         setIsLoading(false);
       }
@@ -99,7 +161,6 @@ export default function App() {
     setApiError("");
     try {
       if (selectedTask) {
-        // Edit
         const response = await fetch(`${API_URL}/tasks/${selectedTask.id}`, {
           method: "PUT",
           headers: {
@@ -111,13 +172,15 @@ export default function App() {
             description: formData.description,
           }),
         });
-        if (!response.ok) throw new Error("Failed to update task");
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "Failed to update task");
+        }
         const updated = await response.json();
         setTasks((prev) =>
           prev.map((t) => (t.id === selectedTask.id ? updated : t)),
         );
       } else {
-        // Create
         const response = await fetch(`${API_URL}/tasks`, {
           method: "POST",
           headers: {
@@ -153,6 +216,8 @@ export default function App() {
       if (!response.ok) throw new Error("Failed to update task");
       const updated = await response.json();
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+      // Keep detail view in sync
+      if (detailTask?.id === task.id) setDetailTask(updated);
     } catch (error) {
       setApiError(error.message);
     }
@@ -168,6 +233,7 @@ export default function App() {
       });
       if (!response.ok) throw new Error("Failed to delete task");
       setTasks((prev) => prev.filter((t) => t.id !== id));
+      if (detailTask?.id === id) setDetailTask(null);
     } catch (error) {
       setApiError(error.message);
     }
@@ -188,6 +254,14 @@ export default function App() {
     setUser(null);
     setTasks([]);
     setApiError("");
+    setActiveView("dashboard");
+    setDetailTask(null);
+  };
+
+  // Navigate and clear detail if leaving tasks
+  const handleNavigate = (view) => {
+    setActiveView(view);
+    if (view !== "tasks") setDetailTask(null);
   };
 
   // ── Not logged in ────────────────────────────────────────────────────────────
@@ -195,112 +269,138 @@ export default function App() {
     return <Auth onLoginSuccess={handleLoginSuccess} apiError={apiError} />;
   }
 
+  // ── Render the active view ───────────────────────────────────────────────────
+  const renderView = () => {
+    if (activeView === "dashboard") {
+      return (
+        <DashboardOverview
+          user={user}
+          tasks={tasks}
+          dbStatus={dbStatus}
+          onViewTasks={() => handleNavigate("tasks")}
+          onViewTask={(task) => {
+            setDetailTask(task);
+            handleNavigate("tasks");
+          }}
+        />
+      );
+    }
+
+    if (activeView === "settings") {
+      return (
+        <SettingsView
+          user={user}
+          onUpdatePreferences={handleUpdatePreferences}
+        />
+      );
+    }
+
+    // ── Tasks view ─────────────────────────────────────────────────────────────
+    if (detailTask) {
+      return (
+        <TaskDetail
+          task={detailTask}
+          onBack={() => setDetailTask(null)}
+          onToggleComplete={handleToggleComplete}
+          onDelete={handleDeleteTask}
+          onEdit={openEditModal}
+        />
+      );
+    }
+
+    return (
+      <>
+        <TaskHeader
+          search={search}
+          setSearch={setSearch}
+          onOpenModal={() => setIsModalOpen(true)}
+        />
+
+        <section style={styles.titleSection}>
+          <div>
+            <h1 style={styles.pageTitle}>My Tasks</h1>
+            <p style={styles.pageSubtitle}>
+              {tasks.length} task{tasks.length !== 1 ? "s" : ""} for{" "}
+              <strong>{user.fullName}</strong>
+            </p>
+          </div>
+
+          <div style={styles.filterPills}>
+            {["All", "Active", "Inactive"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatus(f)}
+                style={status === f ? styles.pillActive : styles.pillInactive}
+              >
+                {f === "Inactive" ? "Completed" : f}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section style={styles.cardGrid}>
+          {isLoading ? (
+            <div style={styles.emptyState}>Loading tasks…</div>
+          ) : tasks.length === 0 ? (
+            <div style={styles.emptyState}>
+              {search
+                ? `No tasks match "${search}"`
+                : status !== "All"
+                  ? `No ${status.toLowerCase()} tasks.`
+                  : "No tasks yet — click Add Task to create one."}
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onToggleComplete={handleToggleComplete}
+                onDelete={handleDeleteTask}
+                onEdit={openEditModal}
+              />
+            ))
+          )}
+        </section>
+      </>
+    );
+  };
+
   // ── App shell ────────────────────────────────────────────────────────────────
   return (
-    <Router>
-      <Routes>
-        <Route
-          path="*"
-          element={
-            <div style={styles.appContainer}>
-              <Sidebar user={user} onLogout={handleLogout} />
+    <div
+      style={{
+        ...styles.appContainer,
+        "--accent": user.accentColor || "#4F46E5",
+      }}
+    >
+      <Sidebar
+        user={user}
+        activeView={activeView}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+      />
 
-              <main style={styles.mainContent}>
-                {/* Global error banner */}
-                {apiError && (
-                  <div style={styles.errorBanner}>
-                    ⚠️ {apiError}
-                    <button
-                      onClick={() => setApiError("")}
-                      style={styles.errorClose}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
+      <main style={styles.mainContent}>
+        {apiError && (
+          <div style={styles.errorBanner}>
+            ⚠️ {apiError}
+            <button onClick={() => setApiError("")} style={styles.errorClose}>
+              ✕
+            </button>
+          </div>
+        )}
 
-                <TaskHeader
-                  search={search}
-                  setSearch={setSearch}
-                  onOpenModal={() => setIsModalOpen(true)}
-                />
+        {renderView()}
+      </main>
 
-                <section style={styles.titleSection}>
-                  <div>
-                    <h1
-                      style={{
-                        margin: 0,
-                        fontSize: "28px",
-                        fontWeight: "800",
-                        color: "#111827",
-                      }}
-                    >
-                      My Tasks
-                    </h1>
-                    <p
-                      style={{
-                        margin: "4px 0 0 0",
-                        color: "#6B7280",
-                        fontSize: "14px",
-                      }}
-                    >
-                      {tasks.length} task{tasks.length !== 1 ? "s" : ""} for{" "}
-                      <strong>{user.fullName}</strong>
-                    </p>
-                  </div>
-
-                  <div style={styles.filterPills}>
-                    {["All", "Active", "Inactive"].map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setStatus(f)}
-                        style={
-                          status === f ? styles.pillActive : styles.pillInactive
-                        }
-                      >
-                        {f === "Inactive" ? "Completed" : f}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section style={styles.cardGrid}>
-                  {isLoading ? (
-                    <div style={styles.emptyState}>Loading tasks…</div>
-                  ) : tasks.length === 0 ? (
-                    <div style={styles.emptyState}>
-                      {search
-                        ? `No tasks match "${search}"`
-                        : status !== "All"
-                          ? `No ${status.toLowerCase()} tasks.`
-                          : "No tasks yet — click Add Task to create one."}
-                    </div>
-                  ) : (
-                    tasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onToggleComplete={handleToggleComplete}
-                        onDelete={handleDeleteTask}
-                        onEdit={openEditModal}
-                      />
-                    ))
-                  )}
-                </section>
-              </main>
-
-              {isModalOpen && (
-                <TaskModal
-                  task={selectedTask}
-                  onClose={closeModal}
-                  onSubmit={handleModalSubmit}
-                />
-              )}
-            </div>
-          }
+      {isModalOpen && (
+        <TaskModal
+          task={selectedTask}
+          onClose={closeModal}
+          onSubmit={handleModalSubmit}
         />
-      </Routes>
-    </Router>
+      )}
+    </div>
   );
 }
 
@@ -345,6 +445,17 @@ const styles = {
     marginBottom: "28px",
     flexWrap: "wrap",
     gap: "16px",
+  },
+  pageTitle: {
+    margin: 0,
+    fontSize: "28px",
+    fontWeight: "800",
+    color: "#111827",
+  },
+  pageSubtitle: {
+    margin: "4px 0 0 0",
+    color: "#6B7280",
+    fontSize: "14px",
   },
   filterPills: {
     display: "flex",

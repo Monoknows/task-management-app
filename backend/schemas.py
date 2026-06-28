@@ -10,9 +10,16 @@ class UserResponse(BaseModel):
     id: int
     full_name: str
     email: EmailStr
+    accent_color: str
+    avatar_url: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+class UserPreferencesUpdate(BaseModel):
+    accent_color: Optional[str] = None
+    avatar_url: Optional[str] = None
+    full_name: Optional[str] = None
 
 class TaskCreate(BaseModel):
     title: str

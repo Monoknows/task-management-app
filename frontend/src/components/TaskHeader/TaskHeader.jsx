@@ -77,7 +77,7 @@ const styles = {
     flexShrink: 0,
   },
   addBtn: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: "var(--accent)",
     color: "#FFFFFF",
     border: "none",
     padding: "10px 20px",

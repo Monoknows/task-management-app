@@ -1,9 +1,10 @@
 // Props from App.jsx:
-//   user  — { id, fullName, email, workspace } — real data from backend
-//   onLogout — clears state and localStorage
+//   user        — { id, fullName, email, workspace, accentColor, avatarUrl }
+//   activeView  — "dashboard" | "tasks" | "settings"
+//   onNavigate  — (view) => void
+//   onLogout    — clears state and localStorage
 
-export default function Sidebar({ user, onLogout }) {
-  // Build initials from the real user.fullName
+export default function Sidebar({ user, activeView, onNavigate, onLogout }) {
   const getInitials = (name) => {
     if (!name) return "?";
     return name
@@ -16,27 +17,45 @@ export default function Sidebar({ user, onLogout }) {
       .slice(0, 2);
   };
 
+  const navItems = [
+    { id: "dashboard", icon: "⊞", label: "Dashboard" },
+    { id: "tasks", icon: "✓", label: "My Tasks" },
+    { id: "settings", icon: "⚙", label: "Settings" },
+  ];
+
   return (
     <aside style={styles.sidebar}>
       {/* Logo */}
       <div style={styles.logo}>Task Manager</div>
 
-      {/* Nav — single-page app, navigation is handled in App.jsx */}
+      {/* Nav */}
       <nav style={styles.nav}>
-        <div style={styles.navItemActive}>
-          <span style={styles.navIcon}>✓</span> Tasks
-        </div>
+        {navItems.map(({ id, icon, label }) => {
+          const isActive = activeView === id;
+          return (
+            <div
+              key={id}
+              onClick={() => onNavigate(id)}
+              style={isActive ? styles.navItemActive : styles.navItem}
+            >
+              <span style={styles.navIcon}>{icon}</span>
+              {label}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Real user info from backend */}
+      {/* Real user info */}
       <div style={styles.userBlock}>
-        <div style={styles.avatar}>{getInitials(user?.fullName)}</div>
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt="" style={styles.avatarImg} />
+        ) : (
+          <div style={styles.avatar}>{getInitials(user?.fullName)}</div>
+        )}
         <div style={styles.userInfo}>
-          {/* user.fullName comes from backend's full_name field */}
           <div style={styles.userName} title={user?.fullName}>
             {user?.fullName || "—"}
           </div>
-          {/* user.email comes directly from the backend response */}
           <div style={styles.userEmail} title={user?.email}>
             {user?.email || "—"}
           </div>
@@ -58,19 +77,16 @@ const styles = {
     padding: "24px 16px",
     display: "flex",
     flexDirection: "column",
-    // Sidebar now only takes up as much height as its own content
-    // (header + nav + profile) instead of being stretched to fill the
-    // full viewport, which was leaving a large empty gap when there
-    // were few nav items.
     boxSizing: "border-box",
     position: "sticky",
     top: 0,
     alignSelf: "flex-start",
+    minHeight: "100vh",
   },
   logo: {
     fontSize: "18px",
     fontWeight: "800",
-    color: "#4F46E5",
+    color: "var(--accent)",
     marginBottom: "32px",
     padding: "0 8px",
     letterSpacing: "-0.4px",
@@ -79,51 +95,66 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "4px",
+    flex: 1,
+  },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 14px",
+    color: "#6B7280",
+    borderRadius: "8px",
+    fontWeight: "500",
+    fontSize: "14px",
+    cursor: "pointer",
+    transition: "background 0.15s",
   },
   navItemActive: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
     padding: "10px 14px",
-    backgroundColor: "#EEF2FF",
-    color: "#4F46E5",
+    backgroundColor: "color-mix(in srgb, var(--accent) 12%, white)",
+    color: "var(--accent)",
     borderRadius: "8px",
     fontWeight: "600",
     fontSize: "14px",
-    cursor: "default",
+    cursor: "pointer",
   },
   navIcon: {
     fontSize: "14px",
     width: "16px",
     textAlign: "center",
   },
-  // ── Real user block ──────────────────────────────────────────────────────────
   userBlock: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
     paddingTop: "16px",
     borderTop: "1px solid #E5E7EB",
-    marginTop: "24px",
+    marginTop: "16px",
   },
   avatar: {
     width: "36px",
     height: "36px",
     borderRadius: "50%",
-    backgroundColor: "#EEF2FF",
-    color: "#4F46E5",
+    backgroundColor: "color-mix(in srgb, var(--accent) 12%, white)",
+    color: "var(--accent)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontWeight: "700",
     fontSize: "13px",
     flexShrink: 0,
-    // Color is derived from user initials — always reflects real name
   },
-  userInfo: {
-    flex: 1,
-    minWidth: 0,
+  avatarImg: {
+    width: "36px",
+    height: "36px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    flexShrink: 0,
   },
+  userInfo: { flex: 1, minWidth: 0 },
   userName: {
     fontWeight: "600",
     fontSize: "13px",

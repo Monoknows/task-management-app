@@ -5,13 +5,15 @@
 //   onEdit(task)
 
 export default function TaskCard({ task, onToggleComplete, onDelete, onEdit }) {
+  const isCompleted = task.is_completed;
+
   return (
     <div style={styles.card}>
       <div style={styles.topRow}>
         <label style={styles.checkboxLabel}>
           <input
             type="checkbox"
-            checked={task.is_completed}
+            checked={isCompleted}
             onChange={() => onToggleComplete(task)}
             style={styles.checkbox}
           />
@@ -20,19 +22,21 @@ export default function TaskCard({ task, onToggleComplete, onDelete, onEdit }) {
         <span
           style={{
             ...styles.statusBadge,
-            backgroundColor: task.is_completed ? "#ECFDF5" : "#EEF2FF",
-            color: task.is_completed ? "#059669" : "#4F46E5",
+            backgroundColor: isCompleted
+              ? "#ECFDF5"
+              : "color-mix(in srgb, var(--accent) 12%, white)",
+            color: isCompleted ? "#059669" : "var(--accent)",
           }}
         >
-          {task.is_completed ? "✓ Completed" : "● Active"}
+          {isCompleted ? "✓ Completed" : "● Active"}
         </span>
       </div>
 
       <h3
         style={{
           ...styles.title,
-          textDecoration: task.is_completed ? "line-through" : "none",
-          color: task.is_completed ? "#9CA3AF" : "#111827",
+          textDecoration: isCompleted ? "line-through" : "none",
+          color: isCompleted ? "#9CA3AF" : "#111827",
         }}
       >
         {task.title}
@@ -43,7 +47,19 @@ export default function TaskCard({ task, onToggleComplete, onDelete, onEdit }) {
       </p>
 
       <div style={styles.footer}>
-        <button onClick={() => onEdit(task)} style={styles.editBtn}>
+        {/* Edit button is disabled and visually dimmed when task is completed */}
+        <button
+          onClick={() => !isCompleted && onEdit(task)}
+          style={{
+            ...styles.editBtn,
+            opacity: isCompleted ? 0.4 : 1,
+            cursor: isCompleted ? "not-allowed" : "pointer",
+            color: isCompleted ? "#9CA3AF" : "#374151",
+            borderColor: isCompleted ? "#E5E7EB" : "#D1D5DB",
+          }}
+          disabled={isCompleted}
+          title={isCompleted ? "Cannot edit a completed task" : "Edit task"}
+        >
           ✏️ Edit
         </button>
         <button onClick={() => onDelete(task.id)} style={styles.deleteBtn}>
@@ -74,7 +90,7 @@ const styles = {
   checkbox: {
     width: "18px",
     height: "18px",
-    accentColor: "#4F46E5",
+    accentColor: "var(--accent)",
     cursor: "pointer",
   },
   statusBadge: {
@@ -111,13 +127,12 @@ const styles = {
   editBtn: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    color: "#374151",
     border: "1px solid #D1D5DB",
     padding: "8px",
     borderRadius: "8px",
     fontWeight: "600",
     fontSize: "13px",
-    cursor: "pointer",
+    transition: "opacity 0.15s",
   },
   deleteBtn: {
     flex: 1,

@@ -29,8 +29,10 @@ export default function TaskDetail({
               <span
                 style={{
                   ...styles.statusBadge,
-                  backgroundColor: task.is_completed ? "#ECFDF5" : "#EEF2FF",
-                  color: task.is_completed ? "#059669" : "#4F46E5",
+                  backgroundColor: task.is_completed
+                    ? "#ECFDF5"
+                    : "color-mix(in srgb, var(--accent) 12%, white)",
+                  color: task.is_completed ? "#059669" : "var(--accent)",
                 }}
               >
                 {task.is_completed ? "✓ Completed" : "● Active"}
@@ -134,7 +136,7 @@ const styles = {
   backBtn: {
     background: "none",
     border: "none",
-    color: "#4F46E5",
+    color: "var(--accent)",
     cursor: "pointer",
     fontWeight: "600",
     fontSize: "14px",
@@ -221,7 +223,7 @@ const styles = {
   checkbox: {
     width: "18px",
     height: "18px",
-    accentColor: "#4F46E5",
+    accentColor: "var(--accent)",
     cursor: "pointer",
     flexShrink: 0,
   },
@@ -233,7 +235,7 @@ const styles = {
   },
   primaryBtn: {
     width: "100%",
-    backgroundColor: "#4F46E5",
+    backgroundColor: "var(--accent)",
     color: "#FFFFFF",
     border: "none",
     padding: "11px",

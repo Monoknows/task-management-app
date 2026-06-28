@@ -8,6 +8,8 @@ class User(base):
     full_name = Column(String, index=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    accent_color = Column(String, nullable=False, default="#4F46E5")
+    avatar_url = Column(String, nullable=True)  # base64 data URL
 
     tasks = relationship("Task", back_populates="owner", cascade="all, delete-orphan")
 

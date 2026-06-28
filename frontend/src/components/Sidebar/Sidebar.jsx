@@ -58,12 +58,14 @@ const styles = {
     padding: "24px 16px",
     display: "flex",
     flexDirection: "column",
-    minHeight: "100vh",
+    // Sidebar now only takes up as much height as its own content
+    // (header + nav + profile) instead of being stretched to fill the
+    // full viewport, which was leaving a large empty gap when there
+    // were few nav items.
     boxSizing: "border-box",
     position: "sticky",
     top: 0,
     alignSelf: "flex-start",
-    height: "100vh",
   },
   logo: {
     fontSize: "18px",
@@ -77,7 +79,6 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "4px",
-    flex: 1,
   },
   navItemActive: {
     display: "flex",
@@ -103,7 +104,7 @@ const styles = {
     gap: "10px",
     paddingTop: "16px",
     borderTop: "1px solid #E5E7EB",
-    marginTop: "auto",
+    marginTop: "24px",
   },
   avatar: {
     width: "36px",

@@ -13,10 +13,8 @@ export default function DashboardOverview({
   const completionRate =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Most recent 3 incomplete tasks for "Upcoming Deadlines"
   const upcomingTasks = tasks.filter((t) => !t.is_completed).slice(0, 3);
 
-  // Recent activity: last 4 tasks (completed ones first, then active)
   const recentActivity = [...tasks].sort((a, b) => b.id - a.id).slice(0, 4);
 
   const greeting = () => {
@@ -56,7 +54,6 @@ export default function DashboardOverview({
 
   return (
     <div style={styles.container}>
-      {/* ── Header ── */}
       <header style={styles.headerRow}>
         <div>
           <h1 style={styles.welcomeText}>
@@ -80,8 +77,6 @@ export default function DashboardOverview({
           {dbLabel}
         </div>
       </header>
-
-      {/* ── Stat cards ── */}
       <section style={styles.statsRow}>
         {[
           { icon: "📋", label: "Total Tasks", value: totalTasks, trend: null },
@@ -241,7 +236,6 @@ export default function DashboardOverview({
             </div>
           </div>
 
-          {/* Recent Activity */}
           <div style={styles.activityCard}>
             <h2 style={styles.sectionTitle}>Recent Activity</h2>
             <div style={styles.activityList}>

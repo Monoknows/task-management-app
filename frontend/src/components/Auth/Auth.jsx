@@ -1,9 +1,5 @@
 import { useState } from "react";
 
-// Props:
-//   onLoginSuccess({ fullName, email, password }) — called with raw form data
-//   App.jsx handles the actual /auth/sync fetch and sets user state
-//   apiError — any backend error string passed down from App.jsx
 export default function Auth({ onLoginSuccess, apiError }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -34,7 +30,6 @@ export default function Auth({ onLoginSuccess, apiError }) {
     setIsSubmitting(true);
 
     if (isSignUp) {
-      // For sign-up: call backend, then show success popup before switching to sign-in
       const result = await onLoginSuccess({
         fullName: fullName.trim(),
         email: email.trim(),
@@ -43,7 +38,6 @@ export default function Auth({ onLoginSuccess, apiError }) {
       });
       setIsSubmitting(false);
 
-      // If no error returned (success), show the popup
       if (!result?.error) {
         setSuccessName(fullName.trim().split(" ")[0]);
         setShowSuccessPopup(true);
@@ -82,11 +76,11 @@ export default function Auth({ onLoginSuccess, apiError }) {
       {showSuccessPopup && (
         <div style={styles.popupOverlay}>
           <div style={styles.popup}>
-            <div style={styles.popupIcon}>Congratulations!</div>
+            <div style={styles.popupIcon}>🎊</div>
             <h2 style={styles.popupTitle}>Account created!</h2>
             <p style={styles.popupBody}>
               Welcome, <strong>{successName}</strong>! Your account has been
-              successfully created. Sign in to start managing your tasks.
+              successfully created, you can now sign in!
             </p>
             <button onClick={handlePopupContinue} style={styles.popupBtn}>
               Continue to sign in

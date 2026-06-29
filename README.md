@@ -169,7 +169,7 @@ Then open **http://localhost:5173** in your browser.
    - **Dashboard** — task stats, completion rate, recent activity
    - **My Tasks** — create, search, filter, edit, complete, and delete tasks
    - **Settings** — update your accent color, upload a profile picture, and change your password
-4. Click **Sign out** (⎋ icon) in the sidebar to log out.
+4. Click **Sign out** (⏻️ icon) in the sidebar to log out.
 
 ---
 

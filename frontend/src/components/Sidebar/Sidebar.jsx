@@ -61,7 +61,7 @@ export default function Sidebar({ user, activeView, onNavigate, onLogout }) {
           </div>
         </div>
         <button onClick={onLogout} style={styles.logoutBtn} title="Sign out">
-          ⎋
+          ⏻️
         </button>
       </div>
     </aside>
